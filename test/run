@@ -1,3 +1,16 @@
-export LD_LIBRARY_PATH=/home/andy/Documents/libsdd-2.0/build
+export LD_LIBRARY_PATH=../build
 make
-./nnf_to_sdd
+#./nnf_to_sdd
+
+#for i in `seq 1 8`;
+#do
+#  (time ./neuralnetwork_compile 0 ${i}) &> "5x5_${i}.txt"
+#  (time ./neuralnetwork_compile 1 ${i}) &> "5x5_conjoin_${i}.txt"
+#done
+
+GRID=6
+CONJOIN_SDD=0
+folder=3
+basename="${GRID}x${GRID}_${folder}"
+
+(time ./neuralnetwork_compile ${GRID} ${CONJOIN_SDD} ${folder} ${basename}) &> "${basename}.txt"

@@ -134,6 +134,12 @@ NnfNode* init_nnf_node(NnfNodeType type, NnfNodeSize size) {
   return nnf;
 }
 
+NnfNode* init_nnf_lit(NnfLiteral lit) {
+  NnfNode* nnf = init_nnf_node(NNF_LIT, 0);
+  nnf->literal = lit;
+  return nnf;
+}
+
 //assumes only one root
 NnfNode* read_nnf_from_file(const char* filename, int* var_count_ptr) {
   char* buffer = read_file(filename);
@@ -154,9 +160,8 @@ NnfNode* read_nnf_from_file(const char* filename, int* var_count_ptr) {
   token = strtok(NULL, whitespace);
   while (token != NULL) {
     if (strcmp(token, "L") == 0) {
-      node_ptrs[node_id] = init_nnf_node(NNF_LIT, 0);
       int literal = int_strtok();
-      node_ptrs[node_id]->literal = literal;
+      node_ptrs[node_id] = init_nnf_lit(literal);
     } else if (strcmp(token, "A") == 0 || strcmp(token, "O") == 0) {
       int num_children = 0;
       if ((strcmp(token, "A") == 0)) {
@@ -186,6 +191,36 @@ NnfNode* read_nnf_from_file(const char* filename, int* var_count_ptr) {
 
   *var_count_ptr = var_count;
   return root;
+}
+
+NnfNode* nnf_replace_helper(NnfNode* nnf, NnfLiteral lit, NnfNode* replace, LongHashMap* hashmap) {
+  if (nnf->type == NNF_LIT) {
+    if (nnf->literal == lit) {
+      replace->ref_count += 1;
+      return replace;
+    }
+    return nnf;
+  }
+
+  NnfNode* node = (NnfNode*)(hash_get((long)(nnf), hashmap));
+  if (node) {
+    return node;
+  }
+  hash_set((long)(nnf), (long)(nnf), hashmap);
+
+
+  for (int i = 0; i < nnf->size; i++) {
+    nnf->children[i] = nnf_replace_helper(nnf->children[i], lit, replace, hashmap);
+  }
+  return nnf;
+}
+
+NnfNode* nnf_replace(NnfNode* nnf, NnfLiteral lit, NnfNode* replace) {
+  int hash_size = 160001;
+  LongHashMap* hashmap = hash_init(hash_size);
+  nnf = nnf_replace_helper(nnf, lit, replace, hashmap);
+  hash_free(hashmap);
+  return nnf;
 }
 
 SddNode* nnf_to_sdd(NnfNode* nnf, SddManager* manager) {
@@ -254,10 +289,9 @@ NnfNode* sdd_to_nnf_helper(SddNode* sdd, SddManager* manager, LongHashMap* hashm
       nnf->children[i]->children[1]->ref_count += 1;
     }
   } else if (sdd_node_is_literal(sdd)) {
-    nnf = init_nnf_node(NNF_LIT, 0);
     int signed_pad = sdd_node_literal(sdd) > 0 ? pad : -1 * pad;
     SddLiteral padded_lit = sdd_node_literal(sdd) + signed_pad;
-    nnf->literal = padded_lit;
+    nnf = init_nnf_lit(padded_lit);
   } else if (sdd_node_is_true(sdd)) {
     nnf = init_nnf_node(NNF_AND, 0);
   } else if (sdd_node_is_false(sdd)) {

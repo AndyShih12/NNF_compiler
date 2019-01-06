@@ -240,9 +240,17 @@ SddWmc wmc_literal_weight(const SddLiteral literal, const WmcManager* wmc_manage
 SddWmc wmc_literal_derivative(const SddLiteral literal, const WmcManager* wmc_manager);
 SddWmc wmc_literal_pr(const SddLiteral literal, const WmcManager* wmc_manager);
 
-//nnf_to sdd
+//nnf_to_sdd
 typedef struct nnf_node_t NnfNode;
+typedef enum {NNF_LIT, NNF_AND, NNF_OR} NnfNodeType;
+typedef unsigned int NnfNodeSize;
+typedef unsigned int NnfRefCount;
+typedef int NnfLiteral;
+
+NnfNode* init_nnf_lit(NnfLiteral lit);
+NnfNode* init_nnf_node(NnfNodeType type, NnfNodeSize size);
 NnfNode* read_nnf_from_file(const char* filename, int* var_count_ptr);
+NnfNode* nnf_replace(NnfNode* nnf, NnfLiteral lit, NnfNode* replace);
 SddNode* nnf_to_sdd(NnfNode* nnf, SddManager* manager);
 NnfNode* sdd_to_nnf_pad_literals(SddNode* sdd, SddManager* manager, int pad);
 NnfNode* sdd_to_nnf(SddNode* sdd, SddManager* manager);

@@ -522,6 +522,7 @@ NNF Code
 typedef enum {NNF_LIT, NNF_AND, NNF_OR} NnfNodeType;
 typedef unsigned int NnfNodeSize;
 typedef unsigned int NnfRefCount;
+typedef int NnfLiteral;
 
 typedef struct nnf_node_t {
 
@@ -530,7 +531,7 @@ typedef struct nnf_node_t {
   NnfRefCount ref_count;
 
   struct nnf_node_t** children;
-  int literal;
+  NnfLiteral literal;
   SddNode* node;
 
   SddSize cache_id;
