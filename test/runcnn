@@ -1,0 +1,8 @@
+export LD_LIBRARY_PATH=../build
+make
+
+digit=0
+CONJOIN_SDD=0
+basename="cnn_${digit}_${CONJOIN_SDD}"
+
+(time ./cnn ${digit} ${CONJOIN_SDD} ${basename}) &> "${basename}.txt"

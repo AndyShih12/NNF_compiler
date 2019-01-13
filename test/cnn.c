@@ -33,7 +33,10 @@ int main(int argc, char **argv) {
 
   Vtree* vtree = sdd_vtree_read(cvtree);
   SddManager* manager = sdd_manager_new(vtree);
+  sdd_manager_auto_gc_and_minimize_on(manager);
   SddNode* main_sdd = sdd_read(csdd, manager);
+
+  printf("%d\n", sdd_manager_is_auto_gc_and_minimize_on(manager));
 
 /////////////////////////////////////////////////
 
@@ -62,12 +65,15 @@ int main(int argc, char **argv) {
       sdd_ref(main_sdd, manager);
       sdd_deref(alpha, manager);
 
+      sdd_manager_minimize_limited(manager);
+
       printf("read sdd #%d\n", i);
+      printf("current node count: %zd\n", sdd_count(main_sdd));
       fflush(stdout);
     }
 
     printf("node count: %zd\n", sdd_count(main_sdd));
-    printf("model count: %lld\n", sdd_model_count(main_sdd,manager));
+    printf("model count: %lld\n", sdd_global_model_count(main_sdd,manager));
     printf("Existentially forgetting...\n");
   
     int exists_map[total_var_count + 1];
@@ -77,7 +83,11 @@ int main(int argc, char **argv) {
     main_sdd = sdd_exists_multiple(exists_map, main_sdd, manager);
 
     printf("node count: %zd\n", sdd_count(main_sdd));
-    printf("model count: %lld\n", sdd_model_count(main_sdd,manager));
+    printf("model count: %lld\n", sdd_global_model_count(main_sdd,manager));
+
+    sdd_save(sdd_outname, main_sdd);
+    sdd_vtree_save(vtree_outname, sdd_manager_vtree(manager));
+
     return 0;
   }
 
@@ -121,6 +131,7 @@ int main(int argc, char **argv) {
 
   printf("node count: %zd\n", sdd_count(sdd));
   printf("model count: %lld\n", sdd_model_count(sdd,manager));
+  printf("global model count: %lld\n", sdd_global_model_count(sdd,manager));
 
 
   sdd_save(sdd_outname, sdd);
