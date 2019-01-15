@@ -16,6 +16,8 @@ int sdd_node_is_literal(SddNode* node);
 int sdd_node_is_decision(SddNode* node);
 SddLiteral sdd_node_literal(SddNode* node);
 SddNode* sdd_manager_literal(const SddLiteral literal, const SddManager* manager);
+NnfNode* sdd_to_nnf(SddNode* sdd, SddManager* manager);
+NnfNode* nnf_replace(NnfNode* nnf, NnfLiteral lit, NnfNode* replace);
 
 //basic/shadows.c
 // SddNode* shadow_node(NodeShadow* shadow);
@@ -130,6 +132,7 @@ NnfNode* init_nnf_node(NnfNodeType type, NnfNodeSize size) {
   nnf->size = size;
   if (size) { nnf->children = malloc(size * sizeof(struct NnfNode*)); }
   nnf->node = NULL;
+  nnf->negated = NULL;
   nnf->ref_count = 0;
   return nnf;
 }
@@ -140,11 +143,27 @@ NnfNode* init_nnf_lit(NnfLiteral lit) {
   return nnf;
 }
 
+NnfNode** init_all_lits(int var_count) {
+  NnfNode** literals = malloc((2*var_count+1) * sizeof(NnfNode*));
+  literals += var_count;
+  for (int lit = 1; lit <= var_count; lit++) {
+    NnfNode* plit = init_nnf_node(NNF_LIT, 0);
+    NnfNode* nlit = init_nnf_node(-NNF_LIT, 0);
+    plit->literal = lit;
+    nlit->literal = -lit;
+    plit->negated = nlit;
+    nlit->negated = plit;
+    literals[lit] = plit;
+    literals[-lit] = nlit;
+  }
+  return literals;
+}
+
 //assumes only one root
 NnfNode* read_nnf_from_file(const char* filename, int* var_count_ptr) {
   char* buffer = read_file(filename);
   char* filtered = filter_comments(buffer);
-
+  char* next = NULL;
 
   const char* whitespace = " \t\n\v\f\r";
   char* token = strtok(filtered, whitespace);
@@ -155,34 +174,79 @@ NnfNode* read_nnf_from_file(const char* filename, int* var_count_ptr) {
   int var_count = int_strtok();  
 
   NnfNode** node_ptrs = malloc(node_count * sizeof(struct NnfNode*));
+  NnfNode** literals = init_all_lits(var_count);
 
   int node_id = 0;
   token = strtok(NULL, whitespace);
+  //for (int asdf = 0; asdf < node_count; asdf++) {
+    //token = strtok(NULL, whitespace);
   while (token != NULL) {
     if (strcmp(token, "L") == 0) {
       int literal = int_strtok();
-      node_ptrs[node_id] = init_nnf_lit(literal);
+      //node_ptrs[node_id] = init_nnf_lit(literal);
+      node_ptrs[node_id] = literals[literal];
     } else if (strcmp(token, "A") == 0 || strcmp(token, "O") == 0) {
-      int num_children = 0;
+      int num_children;
+      NnfNode* negated = NULL;
       if ((strcmp(token, "A") == 0)) {
         num_children = int_strtok();
         node_ptrs[node_id] = init_nnf_node(NNF_AND, num_children);
+        negated = init_nnf_node(NNF_OR, num_children);
       }
       else {
         int_strtok(); // ignore an int
         num_children = int_strtok();
         node_ptrs[node_id] = init_nnf_node(NNF_OR, num_children);
+        negated = init_nnf_node(NNF_AND, num_children);
       }
+      node_ptrs[node_id]->negated = negated;
+      negated->negated = node_ptrs[node_id];
 
       for (int i = 0; i < num_children; i++) {
         int child_id = int_strtok();
         node_ptrs[node_id]->children[i] = node_ptrs[child_id];
+        negated->children[i] = node_ptrs[child_id]->negated;
         node_ptrs[child_id]->ref_count += 1;
+        node_ptrs[child_id]->negated->ref_count += 1;
       }
+    } else if ( strcmp(token, "S") == 0 ) {
+      int num_children = int_strtok();
+      int* children_ids = (int*)malloc(num_children * sizeof(int));
+      for (int i = 0; i < num_children; i++)
+        children_ids[i] = int_strtok();
+      int offset = int_strtok();
+      char* filename = strtok(NULL, whitespace);
+      next = filename;
+      while ( *next ) next++;
+      SddManager* manager_tmp = sdd_manager_create(var_count,1);
+      SddNode* alpha = sdd_read(filename, manager_tmp);
+      SddNode* alpha_negated = sdd_negate(alpha,manager_tmp);
+      NnfNode* alpha_nnf = sdd_to_nnf(alpha,manager_tmp);
+      NnfNode* alpha_negated_nnf = sdd_to_nnf(alpha_negated,manager_tmp);
+      for (int i = 0; i < num_children; i++) {
+        int lit = offset + i;
+        int child_id = children_ids[i];
+        NnfNode* child_nnf = node_ptrs[child_id];
+        NnfNode* child_negated = child_nnf->negated;
+        //node_ptrs[child_id]->ref_count += 1;
+        alpha_nnf = nnf_replace(alpha_nnf, -lit, child_negated);
+        alpha_nnf = nnf_replace(alpha_nnf, lit, child_nnf);
+        alpha_negated_nnf = nnf_replace(alpha_negated_nnf, -lit, child_negated);
+        alpha_negated_nnf = nnf_replace(alpha_negated_nnf, lit, child_nnf);
+      }
+      alpha_nnf->negated = alpha_negated_nnf;
+      alpha_negated_nnf->negated = alpha_nnf;
+      node_ptrs[node_id] = alpha_nnf;
+      free(children_ids);
     }
 
     node_id += 1;
-    token = strtok(NULL, whitespace);
+    if ( next == NULL ) {
+      token = strtok(NULL, whitespace);
+    } else {
+      token = strtok(next+1, whitespace);
+      next = NULL;
+    }
   }
 
   NnfNode* root = node_ptrs[node_count-1];
@@ -223,12 +287,20 @@ NnfNode* nnf_replace(NnfNode* nnf, NnfLiteral lit, NnfNode* replace) {
   return nnf;
 }
 
-SddNode* nnf_to_sdd(NnfNode* nnf, SddManager* manager) {
+void nnf_to_sdd_progress(int* count_finished_nodes) {
+  *count_finished_nodes += 1;
+  if (*count_finished_nodes % 1000 == 0) {
+    printf("Finished compiling %d nodes.\n", *count_finished_nodes);
+  }
+}
+
+SddNode* nnf_to_sdd_helper(NnfNode* nnf, SddManager* manager, int* count_finished_nodes) {
   if (nnf->node) {
     return nnf->node;
   }
   if (nnf->type == NNF_LIT) {
     nnf->node = sdd_manager_literal(nnf->literal, manager);
+    nnf_to_sdd_progress(count_finished_nodes);
     return nnf->node;
   }
 
@@ -243,7 +315,7 @@ SddNode* nnf_to_sdd(NnfNode* nnf, SddManager* manager) {
   }
 
   for (int i = 0; i < nnf->size; i++) {
-    SddNode* beta = nnf_to_sdd(nnf->children[i], manager);
+    SddNode* beta = nnf_to_sdd_helper(nnf->children[i], manager, count_finished_nodes);
     SddNode* gamma = sdd_apply(nnf->node, beta, op, manager);
     sdd_deref(beta, manager);
     sdd_deref(nnf->node, manager);
@@ -256,7 +328,13 @@ SddNode* nnf_to_sdd(NnfNode* nnf, SddManager* manager) {
     sdd_ref(nnf->node, manager);
   }
 
+  nnf_to_sdd_progress(count_finished_nodes);
   return nnf->node;
+}
+
+SddNode* nnf_to_sdd(NnfNode* nnf, SddManager* manager) {
+  int count_finished_nodes = 0;
+  return nnf_to_sdd_helper(nnf, manager, &count_finished_nodes);
 }
 
 NnfNode* sdd_to_nnf_helper(SddNode* sdd, SddManager* manager, LongHashMap* hashmap, int pad) {

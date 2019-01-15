@@ -73,7 +73,8 @@ int main(int argc, char **argv) {
     }
 
     printf("node count: %zd\n", sdd_count(main_sdd));
-    printf("model count: %lld\n", sdd_global_model_count(main_sdd,manager));
+    printf("model count: %lld\n", sdd_model_count(main_sdd,manager));
+    printf("global model count: %lld\n", sdd_global_model_count(main_sdd,manager));
     printf("Existentially forgetting...\n");
   
     int exists_map[total_var_count + 1];
@@ -83,7 +84,8 @@ int main(int argc, char **argv) {
     main_sdd = sdd_exists_multiple(exists_map, main_sdd, manager);
 
     printf("node count: %zd\n", sdd_count(main_sdd));
-    printf("model count: %lld\n", sdd_global_model_count(main_sdd,manager));
+    printf("model count: %lld\n", sdd_model_count(main_sdd,manager));
+    printf("global model count: %lld\n", sdd_global_model_count(main_sdd,manager));    
 
     sdd_save(sdd_outname, main_sdd);
     sdd_vtree_save(vtree_outname, sdd_manager_vtree(manager));
