@@ -533,6 +533,7 @@ typedef struct nnf_node_t {
   struct nnf_node_t** children;
   NnfLiteral literal;
   SddNode* node;
+  struct nnf_node_t* negated;
 
   SddSize cache_id;
 } NnfNode;
