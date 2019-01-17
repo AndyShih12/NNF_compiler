@@ -8,9 +8,11 @@ make
 #  (time ./neuralnetwork_compile 1 ${i}) &> "5x5_conjoin_${i}.txt"
 #done
 
-GRID=6
-CONJOIN_SDD=0
-folder=4
-basename="${GRID}x${GRID}_${folder}"
+#GRID=6
+#CONJOIN_SDD=0
+#folder=4
+#basename="${GRID}x${GRID}_${folder}"
 
-(time ./neuralnetwork_compile ${GRID} ${CONJOIN_SDD} ${folder} ${basename}) &> "${basename}.txt"
+#(time ./neuralnetwork_compile ${GRID} ${CONJOIN_SDD} ${folder} ${basename}) &> "${basename}.txt"
+
+./test

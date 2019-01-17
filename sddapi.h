@@ -247,6 +247,7 @@ typedef unsigned int NnfNodeSize;
 typedef unsigned int NnfRefCount;
 typedef int NnfLiteral;
 
+long long global_nnf_count();
 NnfNode* init_nnf_lit(NnfLiteral lit);
 NnfNode* init_nnf_node(NnfNodeType type, NnfNodeSize size);
 NnfNode* read_nnf_from_file(const char* filename, int* var_count_ptr);

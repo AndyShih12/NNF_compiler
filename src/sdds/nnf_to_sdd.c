@@ -126,7 +126,18 @@ void hash_free(LongHashMap* hashmap) {
 
 ///////////////////////////////////////
 
+long long glob_nnf_count = 0;
+
+long long global_nnf_count() {
+  return glob_nnf_count;
+}
+
 NnfNode* init_nnf_node(NnfNodeType type, NnfNodeSize size) {
+  glob_nnf_count += 1;
+  if (glob_nnf_count % 1000 == 0) {
+    printf("allocated %lld nnf nodes\n", glob_nnf_count);
+  }
+
   NnfNode* nnf = malloc(sizeof(NnfNode));
   nnf->type = type;
   nnf->size = size;
@@ -404,5 +415,9 @@ void free_nnf(NnfNode* nnf) {
       free(nnf->children);
     }
     free(nnf);
+    glob_nnf_count -= 1;
+    if (glob_nnf_count % 1000 == 0) {
+      printf("%lld nnf nodes left\n", glob_nnf_count);
+    }
   }
 }
